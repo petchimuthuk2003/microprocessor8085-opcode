@@ -9,10 +9,656 @@
     <meta property="og:description" content="Instant lookup tool for Intel 8085 Microprocessor hex opcodes, mnemonics, and byte counts." />
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
+    <!-- Pure Tailwind CSS via CDN for standalone zero-dependency execution -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      @keyframes pulse-dot {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.4; transform: scale(0.85); }
+      }
+      .animate-pulse-dot {
+        animation: pulse-dot 1.8s infinite ease-in-out;
+      }
+      @keyframes toast-bounce {
+        0%, 100% { transform: translateY(0); }
+        50% { transform: translateY(-4px); }
+      }
+      .animate-toast {
+        animation: toast-bounce 1.5s infinite ease-in-out;
+      }
+    </style>
   </head>
-  <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
+  <body class="min-h-screen bg-[#FFFFFF] text-[#111827] font-sans flex flex-col selection:bg-blue-100 selection:text-blue-900">
+
+    <!-- Premium Dark Header -->
+    <header class="border-b border-gray-800 bg-[#000000] sticky top-0 z-20 shadow-md">
+      <div class="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div class="flex items-center gap-3.5">
+          <div class="p-2.5 bg-gradient-to-br from-blue-900/60 to-blue-950/90 border border-blue-500/30 rounded-xl text-blue-300 shadow-inner">
+            <svg class="w-6 h-6 text-blue-300" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3v2m6-2v2M9 19v2m6-2v2M3 9h2m-2 6h2m14-6h2m-2 6h2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z"></path>
+            </svg>
+          </div>
+          <div>
+            <h1 class="text-xl sm:text-2xl font-bold text-white tracking-tight flex items-center gap-2">
+              <span>Microprocessor 8085</span>
+              <span class="text-blue-300 font-extrabold">Opcode Lookup</span>
+            </h1>
+            <p class="text-xs sm:text-sm text-blue-200/80 font-medium">
+              Instant hex opcode reference for practical sessions
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2 self-start sm:self-auto">
+          <span class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full text-xs font-semibold bg-blue-950/70 text-blue-200 border border-blue-500/30 shadow-xs">
+            <span class="w-2 h-2 rounded-full bg-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.9)] animate-pulse-dot"></span>
+            246 Instructions | Intel 8085
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-5xl w-full mx-auto px-4 sm:px-6 py-6 flex-1 flex flex-col gap-4">
+      <!-- Search Input Section -->
+      <section class="flex flex-col gap-2">
+        <div class="relative w-full">
+          <div class="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none text-gray-400">
+            <svg class="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+          </div>
+
+          <input
+            id="searchInput"
+            type="text"
+            placeholder="Type mnemonic (e.g., MOV A, B, mova,b, move a b, LXI, JMP)..."
+            aria-label="Search mnemonics or opcodes"
+            class="w-full pl-11 pr-24 py-3.5 text-base sm:text-lg bg-white border-2 border-[#E5E7EB] focus:border-[#2563EB] rounded-xl text-gray-900 placeholder-gray-400 focus:outline-none transition-all shadow-xs"
+            autofocus
+          />
+
+          <div class="absolute inset-y-0 right-0 pr-3 flex items-center gap-2">
+            <button
+              id="clearBtn"
+              class="hidden p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-full transition"
+              title="Clear search"
+              aria-label="Clear search input"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+              </svg>
+            </button>
+            <kbd class="hidden sm:inline-block px-2 py-0.5 text-xs text-gray-400 border border-gray-200 rounded bg-gray-50 font-mono">
+              /
+            </kbd>
+          </div>
+        </div>
+
+        <!-- Instruction Counter -->
+        <div class="text-xs text-gray-500 font-medium px-1 flex items-center justify-between">
+          <span>
+            Showing <strong id="countDisplay" class="text-gray-900 font-bold">246</strong> of 246 instructions
+          </span>
+          <button
+            id="clearSearchTextBtn"
+            class="hidden text-[#2563EB] hover:underline font-semibold"
+          >
+            Clear Search
+          </button>
+        </div>
+      </section>
+
+      <!-- Opcode Table -->
+      <section class="bg-white border border-[#E5E7EB] rounded-xl overflow-hidden shadow-2xs">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left border-collapse">
+            <thead>
+              <tr class="bg-gray-50 border-b border-[#E5E7EB] text-xs font-bold text-gray-700 uppercase tracking-wider">
+                <th scope="col" class="py-3.5 px-4 w-20 text-center">
+                  Sr. No.
+                </th>
+                <th scope="col" class="py-3.5 px-4 sm:px-6">
+                  Mnemonic & Operand
+                </th>
+                <th scope="col" class="py-3.5 px-4 text-center w-36">
+                  Opcode (Hex)
+                </th>
+                <th scope="col" class="py-3.5 px-4 text-center w-28">
+                  Bytes
+                </th>
+                <th scope="col" class="py-3.5 px-4 text-center w-24">
+                  Copy
+                </th>
+              </tr>
+            </thead>
+            <tbody id="tableBody" class="divide-y divide-[#E5E7EB] text-sm font-normal text-[#111827]">
+              <!-- Dynamically populated by Vanilla JS -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Toast Notification for Copying -->
+      <div
+        id="toast"
+        class="hidden fixed bottom-6 right-6 z-50 bg-gray-900 text-white px-4 py-2.5 rounded-lg shadow-lg flex items-center gap-2 text-sm font-medium animate-toast"
+      >
+        <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+        </svg>
+        <span id="toastText">Copied to clipboard!</span>
+      </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-[#E5E7EB] bg-gray-50 py-5 mt-8 text-center text-xs text-gray-500">
+      <div class="max-w-5xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="flex flex-col sm:flex-row items-center gap-1 sm:gap-3 text-left">
+          <span class="font-semibold text-gray-700">Intel 8085 Opcode Reference</span>
+          <span class="hidden sm:inline text-gray-300">•</span>
+          <span class="text-[#2563EB] font-medium">Developed &amp; Designed by Petchimuthu Krishnan</span>
+        </div>
+        <span class="text-gray-400">
+          Press <kbd class="px-1.5 py-0.5 text-[10px] bg-white border border-gray-200 rounded font-mono text-gray-600">/</kbd> to search anytime
+        </span>
+      </div>
+    </footer>
+
+    <!-- Pure Vanilla JavaScript Execution -->
+    <script>
+      // 100% Verified Exact Intel 8085 Instruction Set (246 instructions)
+      const OPCODES_DATA = [
+        { serial_number: 1, mnemonic: "ACI Data", opcode: "CE", bytes: 2 },
+        { serial_number: 2, mnemonic: "ADC A", opcode: "8F", bytes: 1 },
+        { serial_number: 3, mnemonic: "ADC B", opcode: "88", bytes: 1 },
+        { serial_number: 4, mnemonic: "ADC C", opcode: "89", bytes: 1 },
+        { serial_number: 5, mnemonic: "ADC D", opcode: "8A", bytes: 1 },
+        { serial_number: 6, mnemonic: "ADC E", opcode: "8B", bytes: 1 },
+        { serial_number: 7, mnemonic: "ADC H", opcode: "8C", bytes: 1 },
+        { serial_number: 8, mnemonic: "ADC L", opcode: "8D", bytes: 1 },
+        { serial_number: 9, mnemonic: "ADC M", opcode: "8E", bytes: 1 },
+        { serial_number: 10, mnemonic: "ADD A", opcode: "87", bytes: 1 },
+        { serial_number: 11, mnemonic: "ADD B", opcode: "80", bytes: 1 },
+        { serial_number: 12, mnemonic: "ADD C", opcode: "81", bytes: 1 },
+        { serial_number: 13, mnemonic: "ADD D", opcode: "82", bytes: 1 },
+        { serial_number: 14, mnemonic: "ADD E", opcode: "83", bytes: 1 },
+        { serial_number: 15, mnemonic: "ADD H", opcode: "84", bytes: 1 },
+        { serial_number: 16, mnemonic: "ADD L", opcode: "85", bytes: 1 },
+        { serial_number: 17, mnemonic: "ADD M", opcode: "86", bytes: 1 },
+        { serial_number: 18, mnemonic: "ADI Data", opcode: "C6", bytes: 2 },
+        { serial_number: 19, mnemonic: "ANA A", opcode: "A7", bytes: 1 },
+        { serial_number: 20, mnemonic: "ANA B", opcode: "A0", bytes: 1 },
+        { serial_number: 21, mnemonic: "ANA C", opcode: "A1", bytes: 1 },
+        { serial_number: 22, mnemonic: "ANA D", opcode: "A2", bytes: 1 },
+        { serial_number: 23, mnemonic: "ANA E", opcode: "A3", bytes: 1 },
+        { serial_number: 24, mnemonic: "ANA H", opcode: "A4", bytes: 1 },
+        { serial_number: 25, mnemonic: "ANA L", opcode: "A5", bytes: 1 },
+        { serial_number: 26, mnemonic: "ANA M", opcode: "A6", bytes: 1 },
+        { serial_number: 27, mnemonic: "ANI Data", opcode: "E6", bytes: 2 },
+        { serial_number: 28, mnemonic: "CALL Label", opcode: "CD", bytes: 3 },
+        { serial_number: 29, mnemonic: "CC Label", opcode: "DC", bytes: 3 },
+        { serial_number: 30, mnemonic: "CM Label", opcode: "FC", bytes: 3 },
+        { serial_number: 31, mnemonic: "CMA", opcode: "2F", bytes: 1 },
+        { serial_number: 32, mnemonic: "CMC", opcode: "3F", bytes: 1 },
+        { serial_number: 33, mnemonic: "CMP A", opcode: "BF", bytes: 1 },
+        { serial_number: 34, mnemonic: "CMP B", opcode: "B8", bytes: 1 },
+        { serial_number: 35, mnemonic: "CMP C", opcode: "B9", bytes: 1 },
+        { serial_number: 36, mnemonic: "CMP D", opcode: "BA", bytes: 1 },
+        { serial_number: 37, mnemonic: "CMP E", opcode: "BB", bytes: 1 },
+        { serial_number: 38, mnemonic: "CMP H", opcode: "BC", bytes: 1 },
+        { serial_number: 39, mnemonic: "CMP L", opcode: "BD", bytes: 1 },
+        { serial_number: 40, mnemonic: "CMP M", opcode: "BE", bytes: 1 },
+        { serial_number: 41, mnemonic: "CNC Label", opcode: "D4", bytes: 3 },
+        { serial_number: 42, mnemonic: "CNZ Label", opcode: "C4", bytes: 3 },
+        { serial_number: 43, mnemonic: "CP Label", opcode: "F4", bytes: 3 },
+        { serial_number: 44, mnemonic: "CPE Label", opcode: "EC", bytes: 3 },
+        { serial_number: 45, mnemonic: "CPI Data", opcode: "FE", bytes: 2 },
+        { serial_number: 46, mnemonic: "CPO Label", opcode: "E4", bytes: 3 },
+        { serial_number: 47, mnemonic: "CZ Label", opcode: "CC", bytes: 3 },
+        { serial_number: 48, mnemonic: "DAA", opcode: "27", bytes: 1 },
+        { serial_number: 49, mnemonic: "DAD B", opcode: "09", bytes: 1 },
+        { serial_number: 50, mnemonic: "DAD D", opcode: "19", bytes: 1 },
+        { serial_number: 51, mnemonic: "DAD H", opcode: "29", bytes: 1 },
+        { serial_number: 52, mnemonic: "DAD SP", opcode: "39", bytes: 1 },
+        { serial_number: 53, mnemonic: "DCR A", opcode: "3D", bytes: 1 },
+        { serial_number: 54, mnemonic: "DCR B", opcode: "05", bytes: 1 },
+        { serial_number: 55, mnemonic: "DCR C", opcode: "0D", bytes: 1 },
+        { serial_number: 56, mnemonic: "DCR D", opcode: "15", bytes: 1 },
+        { serial_number: 57, mnemonic: "DCR E", opcode: "1D", bytes: 1 },
+        { serial_number: 58, mnemonic: "DCR H", opcode: "25", bytes: 1 },
+        { serial_number: 59, mnemonic: "DCR L", opcode: "2D", bytes: 1 },
+        { serial_number: 60, mnemonic: "DCR M", opcode: "35", bytes: 1 },
+        { serial_number: 61, mnemonic: "DCX B", opcode: "0B", bytes: 1 },
+        { serial_number: 62, mnemonic: "DCX D", opcode: "1B", bytes: 1 },
+        { serial_number: 63, mnemonic: "DCX H", opcode: "2B", bytes: 1 },
+        { serial_number: 64, mnemonic: "DCX SP", opcode: "3B", bytes: 1 },
+        { serial_number: 65, mnemonic: "DI", opcode: "F3", bytes: 1 },
+        { serial_number: 66, mnemonic: "EI", opcode: "FB", bytes: 1 },
+        { serial_number: 67, mnemonic: "HLT", opcode: "76", bytes: 1 },
+        { serial_number: 68, mnemonic: "IN Port-address", opcode: "DB", bytes: 2 },
+        { serial_number: 69, mnemonic: "INR A", opcode: "3C", bytes: 1 },
+        { serial_number: 70, mnemonic: "INR B", opcode: "04", bytes: 1 },
+        { serial_number: 71, mnemonic: "INR C", opcode: "0C", bytes: 1 },
+        { serial_number: 72, mnemonic: "INR D", opcode: "14", bytes: 1 },
+        { serial_number: 73, mnemonic: "INR E", opcode: "1C", bytes: 1 },
+        { serial_number: 74, mnemonic: "INR H", opcode: "24", bytes: 1 },
+        { serial_number: 75, mnemonic: "INR L", opcode: "2C", bytes: 1 },
+        { serial_number: 76, mnemonic: "INR M", opcode: "34", bytes: 1 },
+        { serial_number: 77, mnemonic: "INX B", opcode: "03", bytes: 1 },
+        { serial_number: 78, mnemonic: "INX D", opcode: "13", bytes: 1 },
+        { serial_number: 79, mnemonic: "INX H", opcode: "23", bytes: 1 },
+        { serial_number: 80, mnemonic: "INX SP", opcode: "33", bytes: 1 },
+        { serial_number: 81, mnemonic: "JC Label", opcode: "DA", bytes: 3 },
+        { serial_number: 82, mnemonic: "JM Label", opcode: "FA", bytes: 3 },
+        { serial_number: 83, mnemonic: "JMP Label", opcode: "C3", bytes: 3 },
+        { serial_number: 84, mnemonic: "JNC Label", opcode: "D2", bytes: 3 },
+        { serial_number: 85, mnemonic: "JNZ Label", opcode: "C2", bytes: 3 },
+        { serial_number: 86, mnemonic: "JP Label", opcode: "F2", bytes: 3 },
+        { serial_number: 87, mnemonic: "JPE Label", opcode: "EA", bytes: 3 },
+        { serial_number: 88, mnemonic: "JPO Label", opcode: "E2", bytes: 3 },
+        { serial_number: 89, mnemonic: "JZ Label", opcode: "CA", bytes: 3 },
+        { serial_number: 90, mnemonic: "LDA Address", opcode: "3A", bytes: 3 },
+        { serial_number: 91, mnemonic: "LDAX B", opcode: "0A", bytes: 1 },
+        { serial_number: 92, mnemonic: "LDAX D", opcode: "1A", bytes: 1 },
+        { serial_number: 93, mnemonic: "LHLD Address", opcode: "2A", bytes: 3 },
+        { serial_number: 94, mnemonic: "LXI B, Data16", opcode: "01", bytes: 3 },
+        { serial_number: 95, mnemonic: "LXI D, Data16", opcode: "11", bytes: 3 },
+        { serial_number: 96, mnemonic: "LXI H, Data16", opcode: "21", bytes: 3 },
+        { serial_number: 97, mnemonic: "LXI SP, Data16", opcode: "31", bytes: 3 },
+        { serial_number: 98, mnemonic: "MOV A, A", opcode: "7F", bytes: 1 },
+        { serial_number: 99, mnemonic: "MOV A, B", opcode: "78", bytes: 1 },
+        { serial_number: 100, mnemonic: "MOV A, C", opcode: "79", bytes: 1 },
+        { serial_number: 101, mnemonic: "MOV A, D", opcode: "7A", bytes: 1 },
+        { serial_number: 102, mnemonic: "MOV A, E", opcode: "7B", bytes: 1 },
+        { serial_number: 103, mnemonic: "MOV A, H", opcode: "7C", bytes: 1 },
+        { serial_number: 104, mnemonic: "MOV A, L", opcode: "7D", bytes: 1 },
+        { serial_number: 105, mnemonic: "MOV A, M", opcode: "7E", bytes: 1 },
+        { serial_number: 106, mnemonic: "MOV B, A", opcode: "47", bytes: 1 },
+        { serial_number: 107, mnemonic: "MOV B, B", opcode: "40", bytes: 1 },
+        { serial_number: 108, mnemonic: "MOV B, C", opcode: "41", bytes: 1 },
+        { serial_number: 109, mnemonic: "MOV B, D", opcode: "42", bytes: 1 },
+        { serial_number: 110, mnemonic: "MOV B, E", opcode: "43", bytes: 1 },
+        { serial_number: 111, mnemonic: "MOV B, H", opcode: "44", bytes: 1 },
+        { serial_number: 112, mnemonic: "MOV B, L", opcode: "45", bytes: 1 },
+        { serial_number: 113, mnemonic: "MOV B, M", opcode: "46", bytes: 1 },
+        { serial_number: 114, mnemonic: "MOV C, A", opcode: "4F", bytes: 1 },
+        { serial_number: 115, mnemonic: "MOV C, B", opcode: "48", bytes: 1 },
+        { serial_number: 116, mnemonic: "MOV C, C", opcode: "49", bytes: 1 },
+        { serial_number: 117, mnemonic: "MOV C, D", opcode: "4A", bytes: 1 },
+        { serial_number: 118, mnemonic: "MOV C, E", opcode: "4B", bytes: 1 },
+        { serial_number: 119, mnemonic: "MOV C, H", opcode: "4C", bytes: 1 },
+        { serial_number: 120, mnemonic: "MOV C, L", opcode: "4D", bytes: 1 },
+        { serial_number: 121, mnemonic: "MOV C, M", opcode: "4E", bytes: 1 },
+        { serial_number: 122, mnemonic: "MOV D, A", opcode: "57", bytes: 1 },
+        { serial_number: 123, mnemonic: "MOV D, B", opcode: "50", bytes: 1 },
+        { serial_number: 124, mnemonic: "MOV D, C", opcode: "51", bytes: 1 },
+        { serial_number: 125, mnemonic: "MOV D, D", opcode: "52", bytes: 1 },
+        { serial_number: 126, mnemonic: "MOV D, E", opcode: "53", bytes: 1 },
+        { serial_number: 127, mnemonic: "MOV D, H", opcode: "54", bytes: 1 },
+        { serial_number: 128, mnemonic: "MOV D, L", opcode: "55", bytes: 1 },
+        { serial_number: 129, mnemonic: "MOV D, M", opcode: "56", bytes: 1 },
+        { serial_number: 130, mnemonic: "MOV E, A", opcode: "5F", bytes: 1 },
+        { serial_number: 131, mnemonic: "MOV E, B", opcode: "58", bytes: 1 },
+        { serial_number: 132, mnemonic: "MOV E, C", opcode: "59", bytes: 1 },
+        { serial_number: 133, mnemonic: "MOV E, D", opcode: "5A", bytes: 1 },
+        { serial_number: 134, mnemonic: "MOV E, E", opcode: "5B", bytes: 1 },
+        { serial_number: 135, mnemonic: "MOV E, H", opcode: "5C", bytes: 1 },
+        { serial_number: 136, mnemonic: "MOV E, L", opcode: "5D", bytes: 1 },
+        { serial_number: 137, mnemonic: "MOV E, M", opcode: "5E", bytes: 1 },
+        { serial_number: 138, mnemonic: "MOV H, A", opcode: "67", bytes: 1 },
+        { serial_number: 139, mnemonic: "MOV H, B", opcode: "60", bytes: 1 },
+        { serial_number: 140, mnemonic: "MOV H, C", opcode: "61", bytes: 1 },
+        { serial_number: 141, mnemonic: "MOV H, D", opcode: "62", bytes: 1 },
+        { serial_number: 142, mnemonic: "MOV H, E", opcode: "63", bytes: 1 },
+        { serial_number: 143, mnemonic: "MOV H, H", opcode: "64", bytes: 1 },
+        { serial_number: 144, mnemonic: "MOV H, L", opcode: "65", bytes: 1 },
+        { serial_number: 145, mnemonic: "MOV H, M", opcode: "66", bytes: 1 },
+        { serial_number: 146, mnemonic: "MOV L, A", opcode: "6F", bytes: 1 },
+        { serial_number: 147, mnemonic: "MOV L, B", opcode: "68", bytes: 1 },
+        { serial_number: 148, mnemonic: "MOV L, C", opcode: "69", bytes: 1 },
+        { serial_number: 149, mnemonic: "MOV L, D", opcode: "6A", bytes: 1 },
+        { serial_number: 150, mnemonic: "MOV L, E", opcode: "6B", bytes: 1 },
+        { serial_number: 151, mnemonic: "MOV L, H", opcode: "6C", bytes: 1 },
+        { serial_number: 152, mnemonic: "MOV L, L", opcode: "6D", bytes: 1 },
+        { serial_number: 153, mnemonic: "MOV L, M", opcode: "6E", bytes: 1 },
+        { serial_number: 154, mnemonic: "MOV M, A", opcode: "77", bytes: 1 },
+        { serial_number: 155, mnemonic: "MOV M, B", opcode: "70", bytes: 1 },
+        { serial_number: 156, mnemonic: "MOV M, C", opcode: "71", bytes: 1 },
+        { serial_number: 157, mnemonic: "MOV M, D", opcode: "72", bytes: 1 },
+        { serial_number: 158, mnemonic: "MOV M, E", opcode: "73", bytes: 1 },
+        { serial_number: 159, mnemonic: "MOV M, H", opcode: "74", bytes: 1 },
+        { serial_number: 160, mnemonic: "MOV M, L", opcode: "75", bytes: 1 },
+        { serial_number: 161, mnemonic: "MVI A, Data", opcode: "3E", bytes: 2 },
+        { serial_number: 162, mnemonic: "MVI B, Data", opcode: "06", bytes: 2 },
+        { serial_number: 163, mnemonic: "MVI C, Data", opcode: "0E", bytes: 2 },
+        { serial_number: 164, mnemonic: "MVI D, Data", opcode: "16", bytes: 2 },
+        { serial_number: 165, mnemonic: "MVI E, Data", opcode: "1E", bytes: 2 },
+        { serial_number: 166, mnemonic: "MVI H, Data", opcode: "26", bytes: 2 },
+        { serial_number: 167, mnemonic: "MVI L, Data", opcode: "2E", bytes: 2 },
+        { serial_number: 168, mnemonic: "MVI M, Data", opcode: "36", bytes: 2 },
+        { serial_number: 169, mnemonic: "NOP", opcode: "00", bytes: 1 },
+        { serial_number: 170, mnemonic: "ORA A", opcode: "B7", bytes: 1 },
+        { serial_number: 171, mnemonic: "ORA B", opcode: "B0", bytes: 1 },
+        { serial_number: 172, mnemonic: "ORA C", opcode: "B1", bytes: 1 },
+        { serial_number: 173, mnemonic: "ORA D", opcode: "B2", bytes: 1 },
+        { serial_number: 174, mnemonic: "ORA E", opcode: "B3", bytes: 1 },
+        { serial_number: 175, mnemonic: "ORA H", opcode: "B4", bytes: 1 },
+        { serial_number: 176, mnemonic: "ORA L", opcode: "B5", bytes: 1 },
+        { serial_number: 177, mnemonic: "ORA M", opcode: "B6", bytes: 1 },
+        { serial_number: 178, mnemonic: "ORI Data", opcode: "F6", bytes: 2 },
+        { serial_number: 179, mnemonic: "OUT Port-address", opcode: "D3", bytes: 2 },
+        { serial_number: 180, mnemonic: "PCHL", opcode: "E9", bytes: 1 },
+        { serial_number: 181, mnemonic: "POP B", opcode: "C1", bytes: 1 },
+        { serial_number: 182, mnemonic: "POP D", opcode: "D1", bytes: 1 },
+        { serial_number: 183, mnemonic: "POP H", opcode: "E1", bytes: 1 },
+        { serial_number: 184, mnemonic: "POP PSW", opcode: "F1", bytes: 1 },
+        { serial_number: 185, mnemonic: "PUSH B", opcode: "C5", bytes: 1 },
+        { serial_number: 186, mnemonic: "PUSH D", opcode: "D5", bytes: 1 },
+        { serial_number: 187, mnemonic: "PUSH H", opcode: "E5", bytes: 1 },
+        { serial_number: 188, mnemonic: "PUSH PSW", opcode: "F5", bytes: 1 },
+        { serial_number: 189, mnemonic: "RAL", opcode: "17", bytes: 1 },
+        { serial_number: 190, mnemonic: "RAR", opcode: "1F", bytes: 1 },
+        { serial_number: 191, mnemonic: "RC", opcode: "D8", bytes: 1 },
+        { serial_number: 192, mnemonic: "RET", opcode: "C9", bytes: 1 },
+        { serial_number: 193, mnemonic: "RIM", opcode: "20", bytes: 1 },
+        { serial_number: 194, mnemonic: "RLC", opcode: "07", bytes: 1 },
+        { serial_number: 195, mnemonic: "RM", opcode: "F8", bytes: 1 },
+        { serial_number: 196, mnemonic: "RNC", opcode: "D0", bytes: 1 },
+        { serial_number: 197, mnemonic: "RNZ", opcode: "C0", bytes: 1 },
+        { serial_number: 198, mnemonic: "RP", opcode: "F0", bytes: 1 },
+        { serial_number: 199, mnemonic: "RPE", opcode: "E8", bytes: 1 },
+        { serial_number: 200, mnemonic: "RPO", opcode: "E0", bytes: 1 },
+        { serial_number: 201, mnemonic: "RRC", opcode: "0F", bytes: 1 },
+        { serial_number: 202, mnemonic: "RST 0", opcode: "C7", bytes: 1 },
+        { serial_number: 203, mnemonic: "RST 1", opcode: "CF", bytes: 1 },
+        { serial_number: 204, mnemonic: "RST 2", opcode: "D7", bytes: 1 },
+        { serial_number: 205, mnemonic: "RST 3", opcode: "DF", bytes: 1 },
+        { serial_number: 206, mnemonic: "RST 4", opcode: "E7", bytes: 1 },
+        { serial_number: 207, mnemonic: "RST 5", opcode: "EF", bytes: 1 },
+        { serial_number: 208, mnemonic: "RST 6", opcode: "F7", bytes: 1 },
+        { serial_number: 209, mnemonic: "RST 7", opcode: "FF", bytes: 1 },
+        { serial_number: 210, mnemonic: "RZ", opcode: "C8", bytes: 1 },
+        { serial_number: 211, mnemonic: "SBB A", opcode: "9F", bytes: 1 },
+        { serial_number: 212, mnemonic: "SBB B", opcode: "98", bytes: 1 },
+        { serial_number: 213, mnemonic: "SBB C", opcode: "99", bytes: 1 },
+        { serial_number: 214, mnemonic: "SBB D", opcode: "9A", bytes: 1 },
+        { serial_number: 215, mnemonic: "SBB E", opcode: "9B", bytes: 1 },
+        { serial_number: 216, mnemonic: "SBB H", opcode: "9C", bytes: 1 },
+        { serial_number: 217, mnemonic: "SBB L", opcode: "9D", bytes: 1 },
+        { serial_number: 218, mnemonic: "SBB M", opcode: "9E", bytes: 1 },
+        { serial_number: 219, mnemonic: "SBI Data", opcode: "DE", bytes: 2 },
+        { serial_number: 220, mnemonic: "SHLD Address", opcode: "22", bytes: 3 },
+        { serial_number: 221, mnemonic: "SIM", opcode: "30", bytes: 1 },
+        { serial_number: 222, mnemonic: "SPHL", opcode: "F9", bytes: 1 },
+        { serial_number: 223, mnemonic: "STA Address", opcode: "32", bytes: 3 },
+        { serial_number: 224, mnemonic: "STAX B", opcode: "02", bytes: 1 },
+        { serial_number: 225, mnemonic: "STAX D", opcode: "12", bytes: 1 },
+        { serial_number: 226, mnemonic: "STC", opcode: "37", bytes: 1 },
+        { serial_number: 227, mnemonic: "SUB A", opcode: "97", bytes: 1 },
+        { serial_number: 228, mnemonic: "SUB B", opcode: "90", bytes: 1 },
+        { serial_number: 229, mnemonic: "SUB C", opcode: "91", bytes: 1 },
+        { serial_number: 230, mnemonic: "SUB D", opcode: "92", bytes: 1 },
+        { serial_number: 231, mnemonic: "SUB E", opcode: "93", bytes: 1 },
+        { serial_number: 232, mnemonic: "SUB H", opcode: "94", bytes: 1 },
+        { serial_number: 233, mnemonic: "SUB L", opcode: "95", bytes: 1 },
+        { serial_number: 234, mnemonic: "SUB M", opcode: "96", bytes: 1 },
+        { serial_number: 235, mnemonic: "SUI Data", opcode: "D6", bytes: 2 },
+        { serial_number: 236, mnemonic: "XCHG", opcode: "EB", bytes: 1 },
+        { serial_number: 237, mnemonic: "XRA A", opcode: "AF", bytes: 1 },
+        { serial_number: 238, mnemonic: "XRA B", opcode: "A8", bytes: 1 },
+        { serial_number: 239, mnemonic: "XRA C", opcode: "A9", bytes: 1 },
+        { serial_number: 240, mnemonic: "XRA D", opcode: "AA", bytes: 1 },
+        { serial_number: 241, mnemonic: "XRA E", opcode: "AB", bytes: 1 },
+        { serial_number: 242, mnemonic: "XRA H", opcode: "AC", bytes: 1 },
+        { serial_number: 243, mnemonic: "XRA L", opcode: "AD", bytes: 1 },
+        { serial_number: 244, mnemonic: "XRA M", opcode: "AE", bytes: 1 },
+        { serial_number: 245, mnemonic: "XRI Data", opcode: "EE", bytes: 2 },
+        { serial_number: 246, mnemonic: "XTHL", opcode: "E3", bytes: 1 }
+      ];
+
+      // DOM Element references
+      const searchInput = document.getElementById('searchInput');
+      const clearBtn = document.getElementById('clearBtn');
+      const clearSearchTextBtn = document.getElementById('clearSearchTextBtn');
+      const tableBody = document.getElementById('tableBody');
+      const countDisplay = document.getElementById('countDisplay');
+      const toast = document.getElementById('toast');
+      const toastText = document.getElementById('toastText');
+
+      let copiedCodeKey = null;
+      let toastTimeout = null;
+
+      // Normalization function ignoring spaces, punctuation, and converting 'move' -> 'mov'
+      function normalize(str) {
+        return str
+          .toLowerCase()
+          .replace(/\bmove\b/gi, 'mov')
+          .replace(/[^a-z0-9]/g, '');
+      }
+
+      // Highlight matching query terms
+      function renderHighlightedText(text, query) {
+        if (!query.trim()) return escapeHTML(text);
+
+        const normQuery = query.toLowerCase().replace(/\bmove\b/gi, 'mov');
+        const terms = normQuery.split(/[^a-z0-9]+/).filter(t => t.length > 0);
+
+        if (terms.length === 0) return escapeHTML(text);
+
+        const escapedTerms = terms.map(t => t.replace(/[-[\]{}()*+?.,\\^$|#\s]/g, '\\$&'));
+        const regex = new RegExp(`(${escapedTerms.join('|')})`, 'gi');
+
+        const parts = text.split(regex);
+        return parts.map(part => {
+          if (regex.test(part)) {
+            return `<mark class="bg-blue-100 text-[#2563EB] font-bold px-0.5 py-0.5 rounded">${escapeHTML(part)}</mark>`;
+          }
+          return escapeHTML(part);
+        }).join('');
+      }
+
+      function escapeHTML(str) {
+        return str
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;")
+          .replace(/'/g, "&#039;");
+      }
+
+      // Copy opcode to clipboard
+      window.handleCopyOpcode = function(opcode, mnemonic) {
+        if (navigator.clipboard) {
+          navigator.clipboard.writeText(opcode);
+        } else {
+          // Fallback for non-HTTPS or older browsers
+          const textarea = document.createElement('textarea');
+          textarea.value = opcode;
+          document.body.appendChild(textarea);
+          textarea.select();
+          document.execCommand('copy');
+          document.body.removeChild(textarea);
+        }
+
+        copiedCodeKey = `${opcode}-${mnemonic}`;
+        toastText.innerHTML = `Copied opcode <strong class="font-mono text-blue-300">${escapeHTML(opcode)}</strong> (${escapeHTML(mnemonic)}) to clipboard!`;
+        toast.classList.remove('hidden');
+
+        if (toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => {
+          toast.classList.add('hidden');
+          copiedCodeKey = null;
+          renderTable();
+        }, 1800);
+
+        renderTable();
+      };
+
+      // Filter and render table
+      function renderTable() {
+        const rawQuery = searchInput.value.trim();
+        const normQuery = normalize(rawQuery);
+        const queryLower = rawQuery.toLowerCase();
+
+        if (rawQuery) {
+          clearBtn.classList.remove('hidden');
+          clearSearchTextBtn.classList.remove('hidden');
+        } else {
+          clearBtn.classList.add('hidden');
+          clearSearchTextBtn.classList.add('hidden');
+        }
+
+        const filtered = OPCODES_DATA.filter(item => {
+          if (!rawQuery) return true;
+
+          const normMnemonic = normalize(item.mnemonic);
+          const normOpcode = normalize(item.opcode);
+
+          // 1. Normalized space/punctuation insensitive match
+          if (normMnemonic.includes(normQuery) || normOpcode.includes(normQuery)) {
+            return true;
+          }
+
+          // 2. Standard substring match
+          if (item.mnemonic.toLowerCase().includes(queryLower) || item.opcode.toLowerCase().includes(queryLower)) {
+            return true;
+          }
+
+          // 3. Serial Number match
+          if (item.serial_number.toString() === rawQuery) {
+            return true;
+          }
+
+          // 4. Token match
+          const queryTokens = queryLower
+            .replace(/\bmove\b/gi, 'mov')
+            .split(/[^a-z0-9]+/)
+            .filter(Boolean);
+
+          if (queryTokens.length > 0) {
+            return queryTokens.every(token => normMnemonic.includes(token) || normOpcode.includes(token));
+          }
+
+          return false;
+        });
+
+        countDisplay.textContent = filtered.length;
+
+        if (filtered.length === 0) {
+          tableBody.innerHTML = `
+            <tr>
+              <td colSpan="5" class="py-12 text-center text-gray-500">
+                <div class="flex flex-col items-center justify-center gap-2">
+                  <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                  </svg>
+                  <p class="text-base font-semibold text-gray-700">No matching mnemonics found</p>
+                  <p class="text-xs text-gray-400">
+                    Try typing mnemonics like "MOV A, B", "mova,b", "move a b", "LXI", or "JMP"
+                  </p>
+                  <button
+                    onclick="clearSearch()"
+                    class="mt-2 px-3 py-1.5 text-xs font-medium bg-blue-50 text-[#2563EB] rounded-lg hover:bg-blue-100 transition"
+                  >
+                    Clear Search Bar
+                  </button>
+                </div>
+              </td>
+            </tr>
+          `;
+          return;
+        }
+
+        tableBody.innerHTML = filtered.map(item => {
+          const itemKey = `${item.opcode}-${item.mnemonic}`;
+          const isCopied = copiedCodeKey === itemKey;
+
+          return `
+            <tr class="hover:bg-blue-50/40 transition-colors group">
+              <!-- Sr. No. -->
+              <td class="py-3 px-4 text-center font-mono text-xs text-gray-400 group-hover:text-gray-600">
+                ${item.serial_number}
+              </td>
+
+              <!-- Mnemonic & Operand -->
+              <td class="py-3 px-4 sm:px-6 font-semibold text-gray-900">
+                ${renderHighlightedText(item.mnemonic, rawQuery)}
+              </td>
+
+              <!-- Opcode (Hex) -->
+              <td class="py-3 px-4 text-center">
+                <span
+                  onclick="handleCopyOpcode('${item.opcode}', '${escapeHTML(item.mnemonic)}')"
+                  class="inline-block font-mono font-bold text-base px-3 py-1 bg-gray-50 border border-gray-200 text-[#2563EB] rounded cursor-pointer hover:bg-blue-100 hover:border-blue-300 transition-all tracking-wider shadow-2xs"
+                  title="Click to copy hex opcode"
+                >
+                  ${renderHighlightedText(item.opcode, rawQuery)}
+                </span>
+              </td>
+
+              <!-- Bytes -->
+              <td class="py-3 px-4 text-center">
+                <span class="inline-flex items-center justify-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700">
+                  ${item.bytes} ${item.bytes === 1 ? 'Byte' : 'Bytes'}
+                </span>
+              </td>
+
+              <!-- Copy Action -->
+              <td class="py-3 px-4 text-center">
+                <button
+                  onclick="handleCopyOpcode('${item.opcode}', '${escapeHTML(item.mnemonic)}')"
+                  class="p-1.5 rounded transition ${
+                    isCopied
+                      ? 'bg-green-100 text-green-700 font-semibold'
+                      : 'text-gray-400 hover:text-[#2563EB] hover:bg-blue-50'
+                  }"
+                  title="Copy Hex Code"
+                  aria-label="Copy ${item.opcode}"
+                >
+                  ${
+                    isCopied
+                      ? `<span class="flex items-center text-xs text-green-700 gap-1 font-sans">
+                          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path></svg> Copied
+                         </span>`
+                      : `<svg class="w-4 h-4 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path></svg>`
+                  }
+                </button>
+              </td>
+            </tr>
+          `;
+        }).join('');
+      }
+
+      window.clearSearch = function() {
+        searchInput.value = '';
+        searchInput.focus();
+        renderTable();
+      };
+
+      // Event Listeners
+      searchInput.addEventListener('input', renderTable);
+      clearBtn.addEventListener('click', clearSearch);
+      clearSearchTextBtn.addEventListener('click', clearSearch);
+
+      // Keyboard shortcuts (/ to focus, Esc to clear)
+      window.addEventListener('keydown', (e) => {
+        if (e.key === '/' && document.activeElement !== searchInput) {
+          e.preventDefault();
+          searchInput.focus();
+        } else if (e.key === 'Escape' && document.activeElement === searchInput) {
+          clearSearch();
+        }
+      });
+
+      // Initial focus & render
+      window.addEventListener('DOMContentLoaded', () => {
+        searchInput.focus();
+        renderTable();
+      });
+      // Fallback immediate render
+      renderTable();
+    </script>
   </body>
 </html>
-
