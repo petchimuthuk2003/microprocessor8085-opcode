@@ -1,0 +1,6 @@
+{
+  "name": "Microprocessor 8085 Opcode Lookup",
+  "description": "Instant lookup tool for Intel 8085 Microprocessor hex opcodes, mnemonics, and byte counts.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
